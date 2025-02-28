@@ -20,6 +20,7 @@ from base64 import b64encode
 """ GLOBALS """
 client_socket = None
 server_socket = None
+PORT = 9999
 
 
 """ FUNCTIONS"""
@@ -56,7 +57,7 @@ def send_encrypted_message(message, K1, K2):
     # Then send the length of the message encrypted than hmac'd
     len_str = str(len(cipher_text))
     encrypted_length, _ = encrypt_message(len_str, K1)
-    len_hmac = hmac_message((iv + encrypted_length),K2).decode('utf-8')
+    len_hmac = hmac_message((iv + encrypted_length),K2)
     len_payload = encrypted_length + len_hmac
 
 
@@ -77,12 +78,12 @@ def send_encrypted_message(message, K1, K2):
 
 def receive_encrypted_message(K1, K2):
 
-    iv = socket.recv(16)
+    iv = client_socket.recv(16)
     if not iv or len(iv) != 16:
         return None
 
     # Receiving the length of the message and the hmac
-    length_iv_bytes = socket.recv(20)
+    length_iv_bytes = client_socket.recv(20)
     msg_length = length_iv_bytes[:4]
     length_hmac = length_iv_bytes[4:]
     calculated_len_hmac = hmac_message((iv + msg_length), K2)
@@ -92,7 +93,7 @@ def receive_encrypted_message(K1, K2):
     msg_length = int(msg_length)
 
     # Receiving the message and the hmac
-    msg_bytes = socket.recv(msg_length+16)
+    msg_bytes = client_socket.recv(msg_length+16)
     msg = msg_bytes[:msg_length]
     msg_hmac = msg_bytes[msg_length:]
     calculated_msg_hmac = hmac_message(msg, K2)
@@ -151,7 +152,7 @@ def server(args):
     server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     server_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
     try:
-        server_socket.bind(("localhost", 9999))
+        server_socket.bind(("localhost", PORT))
         server_socket.listen(1)
         client_socket, addr = server_socket.accept()
         p2p_message_handler(client_socket)
@@ -170,7 +171,7 @@ def client(args):
     signal.signal(signal.SIGTERM, shutdown)
     client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     try:
-        client_socket.connect((hostname, 9999))
+        client_socket.connect((hostname, PORT))
         p2p_message_handler(client_socket)
     finally:
         pass
