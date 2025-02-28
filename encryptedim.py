@@ -156,7 +156,7 @@ def server(args):
         server_socket.bind((HOST, PORT))
         server_socket.listen(1)
         client_socket, addr = server_socket.accept()
-        p2p_message_handler(client_socket)
+        p2p_message_handler(client_socket, args.confkey, args.authkey)
     finally:
         pass
         # if client_socket:
@@ -173,7 +173,7 @@ def client(args):
     client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     try:
         client_socket.connect((hostname, PORT))
-        p2p_message_handler(client_socket)
+        p2p_message_handler(client_socket, args.confkey, args.authkey)
     finally:
         pass
         # if client_socket:
