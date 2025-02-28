@@ -21,6 +21,7 @@ from base64 import b64encode
 client_socket = None
 server_socket = None
 PORT = 9999
+HOST = "0.0.0.0"
 
 
 """ FUNCTIONS"""
@@ -152,7 +153,7 @@ def server(args):
     server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     server_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
     try:
-        server_socket.bind(("localhost", PORT))
+        server_socket.bind((HOST, PORT))
         server_socket.listen(1)
         client_socket, addr = server_socket.accept()
         p2p_message_handler(client_socket)
