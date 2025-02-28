@@ -106,7 +106,6 @@ def receive_encrypted_message(K1, K2):
 def get_args():
     parser = argparse.ArgumentParser()
     group = parser.add_mutually_exclusive_group(required=True)
-    group.add_argument("--debug", type=bool)
     group.add_argument("--s", action="store_true")
     group.add_argument("--c", metavar="hostname", type=str)
     parser.add_argument("--confkey", metavar="K1", type=str, required=True)
@@ -193,30 +192,11 @@ def shutdown(signum, frame):
     return
 
 
-def debug(args):
-    print("Debugging")
-    sys.stdout.flush()
 
-    K1 = args.confkey
-    K2 = args.authkey
-
-    msg = "Hello, World!"
-
-    print("Message: ", msg)
-
-    cypehr_text, iv = encrypt_message(msg, K1 )
-
-    decyphr = decrypt_message(cypehr_text, iv ,K1)
-    print("Decrypted Message: ", decyphr)
-
-    return
 
 def main():
     args = get_args()
     sys.stdout.flush()
-
-    if args.debug:
-        debug(args)
 
     if args.c:
         client(args)
