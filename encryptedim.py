@@ -27,19 +27,51 @@ HOST = "0.0.0.0"
 """ FUNCTIONS"""
 
 """ FUNCTIONS TO ENCRYPT AND DECRYPT MESSAGES """
-def encrypt_message(message, K1):
 
-    # hashing k1 so that its 256 bits
-    K1 = SHA256.new(data = K1.encode('utf-8')).digest()
-    cipher = AES.new(K1, AES.MODE_CBC)
-    cipher_text = cipher.encrypt(pad(message.encode('utf-8'), AES.block_size))
-    return cipher_text, cipher.iv
+def encrypt_message(message, key, iv=None):
+    # Convert key to 256-bit key using SHA-256
+    key_hash = SHA256.new(data=key.encode('utf-8')).digest()
 
-def decrypt_message(cipehr_text, iv ,K1):
-    K1 = SHA256.new(data=K1.encode('utf-8')).digest()
-    cipher = AES.new(K1, AES.MODE_CBC, iv)
-    msg = cipher.decrypt(cipehr_text).decode('utf-8')
-    return msg
+    if iv is None:
+        cipher = AES.new(key_hash, AES.MODE_CBC)
+        iv = cipher.iv
+    else:
+        cipher = AES.new(key_hash, AES.MODE_CBC, iv)
+
+    # Pad and encrypt
+    if not isinstance(message, bytes):
+        message = message.encode('utf-8')
+
+
+    padded_data = pad(message, AES.block_size)
+
+    ciphertext = cipher.encrypt(padded_data)
+
+
+    # Return both ciphertext and IV for decryption
+    return ciphertext, iv
+
+
+def decrypt_message(ciphertext, key, iv):
+    try:
+        # Convert key to 256-bit key using SHA-256
+        key_hash = SHA256.new(data=key.encode('utf-8')).digest()
+
+
+        # Recreate cipher with same IV
+        cipher = AES.new(key_hash, AES.MODE_CBC, iv)
+
+        # Decrypt and unpad
+        padded_data = cipher.decrypt(ciphertext)
+
+        data = unpad(padded_data, AES.block_size)
+
+
+        # Convert to string
+        return data.decode('utf-8')
+    except Exception as e:
+        print(f"Decryption error: {e}")
+        return None
 
 def hmac_message(message, K2):
     K2 = SHA256.new(data=K2.encode('utf-8')).digest()
@@ -56,8 +88,10 @@ def send_encrypted_message(message, K1, K2):
     cipher_text, iv = encrypt_message(message, K1)
 
     # Then send the length of the message encrypted than hmac'd
-    len_str = str(len(cipher_text))
-    encrypted_length, _ = encrypt_message(len_str, K1)
+    # Then send the length of the message encrypted than hmac'd
+    len_bytes = len(cipher_text).to_bytes(4, byteorder='big')
+
+    encrypted_length, _ = encrypt_message(len_bytes, K1, iv)
     len_hmac = hmac_message((iv + encrypted_length),K2)
     len_payload = encrypted_length + len_hmac
 
@@ -84,23 +118,23 @@ def receive_encrypted_message(K1, K2):
         return None
 
     # Receiving the length of the message and the hmac
-    length_iv_bytes = client_socket.recv(20)
-    msg_length = length_iv_bytes[:4]
-    length_hmac = length_iv_bytes[4:]
+    length_iv_bytes = client_socket.recv(48)
+    msg_length = length_iv_bytes[:16]
+    length_hmac = length_iv_bytes[16:]
     calculated_len_hmac = hmac_message((iv + msg_length), K2)
     if length_hmac != calculated_len_hmac:
         return None
-    msg_length = decrypt_message(msg_length, iv, K1)
-    msg_length = int(msg_length)
+    msg_bytes = decrypt_message(msg_length, K1, iv)
+    msg_length = int.from_bytes(msg_bytes.encode(), byteorder='big')
 
     # Receiving the message and the hmac
-    msg_bytes = client_socket.recv(msg_length+16)
+    msg_bytes = client_socket.recv(msg_length+32)
     msg = msg_bytes[:msg_length]
     msg_hmac = msg_bytes[msg_length:]
     calculated_msg_hmac = hmac_message(msg, K2)
     if msg_hmac != calculated_msg_hmac:
         return None
-    msg = decrypt_message(msg, iv, K1)
+    msg = decrypt_message(msg, K1, iv)
     return msg
 
 
